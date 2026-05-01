@@ -16,6 +16,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
   NODE_ENV: z.string().default('development'),
   OPS_WEBHOOK_URL: z.string().optional(),
+  REDIS_PASSWORD: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

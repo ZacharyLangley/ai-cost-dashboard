@@ -27,6 +27,14 @@ No Docker. No microservices. No Prisma. No styled-components.
 - Raw API payloads preserved in `raw_*` tables — normalize on read into `*_facts` tables
 - Idempotent upserts everywhere — re-running any pipeline must not duplicate
 
+## Security conventions
+
+- **SSRF**: call `assertSafeUrl()` from `src/lib/safe-fetch.ts` before any `fetch()` that takes a URL from external API data (not from env config)
+- **Admin/meta routes** (`/api/admin/*`, `/api/meta/*`) are wrapped in an `internalOnly` scope — only reachable from localhost. Do not move them outside this scope.
+- **Pino redact**: add new secret field paths to the redact list in `src/lib/logger.ts` rather than logging and filtering later
+- **Error handler**: unknown errors must never surface stack traces or internal message details to HTTP clients — only `{ error: 'Internal server error', requestId }`. Only `NotFoundError`, `ValidationError`, `ZodError` get custom responses.
+- **Security tests** live in `src/api/__tests__/security/` — add a test whenever a new security control is added
+
 ## Project layout
 
 ```
@@ -45,7 +53,9 @@ src/
   api/
     routes/        Fastify route handlers
     schemas/       Zod request/response schemas
-  lib/             shared utilities (http, logger, errors)
+    __tests__/
+      security/    security regression tests (headers, SSRF, error handler)
+  lib/             shared utilities (logger, errors, safe-fetch, redis, notify)
 web/
   src/
     components/

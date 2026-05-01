@@ -2,7 +2,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import staticPlugin from '@fastify/static';
+import { ZodError } from 'zod';
 import { sql } from 'drizzle-orm';
 import { env } from '../config/env.js';
 import { db as defaultDb } from '../db/client.js';
@@ -19,6 +22,15 @@ import { metaRoutes } from './routes/meta.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STALE_THRESHOLD_MS = 36 * 60 * 60 * 1000;
+
+const INTERNAL_IPS = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+
+async function internalOnly(request: FastifyRequest, reply: FastifyReply) {
+  if (!INTERNAL_IPS.includes(request.ip)) {
+    // 404 rather than 403 — don't confirm endpoint exists to external callers
+    return reply.status(404).send();
+  }
+}
 
 async function checkHealth(db: DrizzleDb) {
   const now = Date.now();
@@ -90,17 +102,54 @@ export async function buildServer(opts: { db?: DrizzleDb } = {}) {
   const db = opts.db ?? defaultDb;
   const server = Fastify({ logger: { level: env.LOG_LEVEL } });
 
-  await server.register(cors);
+  await server.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    // Only send HSTS in production — sticky HSTS on localhost breaks dev tooling
+    hsts: env.NODE_ENV === 'production' ? { maxAge: 31536000, includeSubDomains: true } : false,
+  });
 
-  server.setErrorHandler((err: Error, _req: FastifyRequest, reply: FastifyReply) => {
+  await server.register(rateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: '15 minutes',
+  });
+
+  // In production the frontend is same-origin (served by this server), so no CORS needed.
+  // In dev the Vite dev server runs on 5173 and needs explicit permission.
+  await server.register(cors, {
+    origin: env.NODE_ENV === 'production' ? false : ['http://localhost:5173'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    maxAge: 86400,
+  });
+
+  server.setErrorHandler((err: Error & { statusCode?: number }, request: FastifyRequest, reply: FastifyReply) => {
     if (err instanceof NotFoundError) {
       return reply.code(404).send({ error: err.message });
     }
     if (err instanceof ValidationError) {
       return reply.code(400).send({ error: err.message, details: err.details });
     }
+    if (err instanceof ZodError) {
+      return reply.code(400).send({
+        error: 'Validation failed',
+        issues: err.issues.map((i) => ({ path: i.path, message: i.message })),
+      });
+    }
     server.log.error(err);
-    return reply.code(500).send({ error: 'Internal server error' });
+    // Never leak stack traces or internal details to clients
+    return reply.code(500).send({ error: 'Internal server error', requestId: request.id });
   });
 
   server.get('/api/health', async (_req, reply) => {
@@ -108,12 +157,17 @@ export async function buildServer(opts: { db?: DrizzleDb } = {}) {
     return reply.code(health.ok ? 200 : 503).send(health);
   });
 
-  await server.register(adminRoutes, { db });
   await server.register(developerRoutes, { db });
   await server.register(teamRoutes, { db });
   await server.register(orgRoutes, { db });
   await server.register(productRoutes, { db });
-  await server.register(metaRoutes, { db });
+
+  // Admin and meta routes are internal-only — restricted to localhost IPs
+  await server.register(async (scope) => {
+    scope.addHook('preHandler', internalOnly);
+    await scope.register(adminRoutes, { db });
+    await scope.register(metaRoutes, { db });
+  });
 
   // Serve frontend in production
   if (env.NODE_ENV === 'production') {

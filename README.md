@@ -26,7 +26,7 @@ Local-first dashboard tracking GitHub Copilot (usage-based) and Microsoft 365 Co
 
 ### 1. Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - SQLite3 CLI (for backups)
 - Redis (for BullMQ worker; `brew install redis && brew services start redis`)
 
@@ -50,11 +50,12 @@ Edit `.env`:
 ```
 DATABASE_URL=file:./data/copilot.db
 REDIS_URL=redis://localhost:6379
+REDIS_PASSWORD=               # set if Redis is configured with requirepass
 
 # GitHub — see docs/SETUP_GITHUB.md
 GITHUB_TOKEN=ghp_...
 GITHUB_ORG=your-org
-GITHUB_ENTERPRISE=          # optional, for enterprise metrics
+GITHUB_ENTERPRISE=            # optional, for enterprise metrics
 
 # Azure / M365 — see docs/SETUP_AZURE.md
 AZURE_TENANT_ID=
@@ -94,7 +95,7 @@ Format: see `docs/CSV_FORMAT.md`
 
 ### 7. First run — backfill
 
-Trigger pipelines from Admin → Pipelines → Run Now, or via curl:
+Trigger pipelines from Admin → Pipelines → Run Now, or via curl (admin routes require localhost):
 
 ```bash
 curl -X POST localhost:3000/api/admin/pipelines/github/run
@@ -129,7 +130,7 @@ pm2 start pm2.config.js
 ./scripts/backup.sh
 ```
 
-Copies `data/copilot.db` to `backups/copilot-YYYY-MM-DD.db`. Safe for live databases (WAL mode). Add to host cron:
+Copies `data/copilot.db` to `backups/copilot-YYYY-MM-DD.db`. Safe for live databases (WAL mode). Backup directory is `chmod 700`, backup files are `chmod 600`. Files older than 30 days are deleted automatically. Add to host cron:
 
 ```
 0 3 * * * cd /path/to/ai-cost-dashboard && ./scripts/backup.sh >> logs/backup.log 2>&1

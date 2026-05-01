@@ -1,6 +1,7 @@
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { GitHubNotFoundError } from '../../lib/errors.js';
+import { assertSafeUrl } from '../../lib/safe-fetch.js';
 
 const BASE_URL = 'https://api.github.com';
 
@@ -12,6 +13,8 @@ export async function ghFetch(
   attempt = 0,
 ): Promise<Response> {
   const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  // Validate external URLs from API responses (e.g. presigned NDJSON download_url)
+  if (path.startsWith('http')) assertSafeUrl(url);
   const start = Date.now();
 
   const res = await fetch(url, {
