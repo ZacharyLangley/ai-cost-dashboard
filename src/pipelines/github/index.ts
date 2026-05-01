@@ -1,6 +1,7 @@
 import { db as defaultDb } from '../../db/client.js';
 import type { DrizzleDb } from '../../db/client.js';
 import { logger } from '../../lib/logger.js';
+import { notifyOps } from '../../lib/notify.js';
 import { startPipelineRun, finishPipelineRun, updatePipelineRunRows } from '../pipeline-runs.js';
 import { ingestUsage } from './ingest-usage.js';
 import { ingestSeats } from './ingest-seats.js';
@@ -26,6 +27,9 @@ export async function runGitHubPipeline(db: DrizzleDb = defaultDb): Promise<Pipe
     return { runId, status: 'success', rowsAffected };
   } catch (err) {
     await finishPipelineRun(runId, 'failed', err, db);
+    const msg = err instanceof Error ? err.message : String(err);
+    const tail = msg.slice(-500);
+    await notifyOps(`GitHub pipeline run #${runId} failed: ${tail}`, 'error');
     logger.error({ runId, err }, 'github pipeline failed');
     throw err;
   }

@@ -1,28 +1,34 @@
-import { useEffect, useState } from 'react';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { Layout } from './components/Layout';
+import OrgOverview from './pages/OrgOverview';
+import TeamList from './pages/TeamList';
+import TeamDetail from './pages/TeamDetail';
+import DeveloperList from './pages/DeveloperList';
+import DeveloperDetail from './pages/DeveloperDetail';
+import GitHubProductPage from './pages/GitHubProductPage';
+import M365ProductPage from './pages/M365ProductPage';
+import AdminIdentity from './pages/AdminIdentity';
+import AdminPipelines from './pages/AdminPipelines';
 
-interface HealthResponse {
-  ok: boolean;
-  ts: number;
-}
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      { index: true, element: <OrgOverview /> },
+      { path: 'teams', element: <TeamList /> },
+      { path: 'teams/:name', element: <TeamDetail /> },
+      { path: 'developers', element: <DeveloperList /> },
+      { path: 'developers/:username', element: <DeveloperDetail /> },
+      { path: 'products/github', element: <GitHubProductPage /> },
+      { path: 'products/m365', element: <M365ProductPage /> },
+      { path: 'admin/identity', element: <AdminIdentity /> },
+      { path: 'admin/pipelines', element: <AdminPipelines /> },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+]);
 
 export default function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json() as Promise<HealthResponse>)
-      .then(setHealth)
-      .catch((e: Error) => setError(e.message));
-  }, []);
-
-  return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Copilot Cost Dashboard</h1>
-      {error && <p className="text-red-500">{error}</p>}
-      {health && (
-        <pre className="bg-gray-100 p-4 rounded text-sm">{JSON.stringify(health, null, 2)}</pre>
-      )}
-    </div>
-  );
+  return <RouterProvider router={router} />;
 }

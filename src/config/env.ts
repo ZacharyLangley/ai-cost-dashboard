@@ -14,6 +14,8 @@ const envSchema = z.object({
   M365_SEAT_COST_USD: z.coerce.number().default(30),
   PORT: z.coerce.number().default(3000),
   LOG_LEVEL: z.string().default('info'),
+  NODE_ENV: z.string().default('development'),
+  OPS_WEBHOOK_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
