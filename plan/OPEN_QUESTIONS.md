@@ -28,9 +28,9 @@ Resolve before or during the relevant phase. Add new questions as they surface.
 - [ ] **Where does this run?** Single VM, container, laptop? Affects backup + cron strategy.
 - [ ] **Who has access?** Auth/SSO needed for the dashboard, or assumed local-only?
 
-## Speculative — confirm against real APIs
+## Speculative — confirm against real APIs (PENDING_REAL_API)
 
-- [ ] **GitHub `/premium_request/usage` response shape with no user filter** — does it return all users, or paginate, or require a different param? First real call will tell us.
+- [ ] **GitHub `/premium_request/usage` response shape with no user filter** — implemented assuming `{ usageItems: [{ user: string, ...item }] }`. If the endpoint returns aggregate only (no per-user breakdown without `?user=` filter), `ingest-usage.ts` needs to enumerate org members first and call per-user. First real call will tell us. See `src/pipelines/github/ingest-usage.ts` `[SPECULATION]` comment.
 - [ ] **GitHub June 1 schema.** When does `unitType` shift to `tokens`? Does `usageItem` gain `inputTokens`/`outputTokens` fields?
 - [ ] **M365 hashed UPN format.** Confirmed regex pattern after first real pull.
 - [ ] **M365 interactionHistory rate limits.** Beta endpoints — what are actual throttling limits at 100+ user fanout?
