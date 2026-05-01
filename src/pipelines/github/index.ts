@@ -27,9 +27,7 @@ export async function runGitHubPipeline(db: DrizzleDb = defaultDb): Promise<Pipe
     return { runId, status: 'success', rowsAffected };
   } catch (err) {
     await finishPipelineRun(runId, 'failed', err, db);
-    const msg = err instanceof Error ? err.message : String(err);
-    const tail = msg.slice(-500);
-    await notifyOps(`GitHub pipeline run #${runId} failed: ${tail}`, 'error');
+    await notifyOps(`GitHub pipeline run #${runId} failed. Check /admin/pipelines for details.`, 'error');
     logger.error({ runId, err }, 'github pipeline failed');
     throw err;
   }

@@ -38,7 +38,10 @@ async function checkHealth(db: DrizzleDb) {
   let redisLatencyMs = 0;
   try {
     const t0 = Date.now();
-    await redis.ping();
+    await Promise.race([
+      redis.ping(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
+    ]);
     redisLatencyMs = Date.now() - t0;
     redisOk = true;
   } catch {}

@@ -13,7 +13,9 @@
     "db:seed": "tsx src/db/seed.ts",
     "test": "vitest",
     "smoke-test": "tsx scripts/smoke-test.ts",
-    "backup": "bash scripts/backup.sh"
+    "backup": "bash scripts/backup.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
@@ -29,6 +31,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.11.5",
     "@vitest/ui": "^1.2.1",

@@ -3,6 +3,22 @@ import type { DrizzleDb } from '../db/client.js';
 import { pipelineRuns, apiDriftLog } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
+const PII_KEYS = [
+  'username', 'displayName', 'm365Upn', 'upn', 'ghUsername',
+  'login', 'email', 'name', 'userPrincipalName',
+];
+
+function scrubPiiFromPayload(sample: string | undefined): string | undefined {
+  if (!sample) return sample;
+  try {
+    const obj = JSON.parse(sample) as Record<string, unknown>;
+    for (const key of PII_KEYS) delete obj[key];
+    return JSON.stringify(obj).slice(0, 500);
+  } catch {
+    return '[scrubbed]';
+  }
+}
+
 export async function startPipelineRun(pipeline: string, db: DrizzleDb = defaultDb): Promise<number> {
   const result = await db
     .insert(pipelineRuns)
@@ -47,6 +63,6 @@ export async function logDrift(
     source,
     fieldPath,
     unexpectedValue,
-    payloadSample,
+    payloadSample: scrubPiiFromPayload(payloadSample),
   });
 }
